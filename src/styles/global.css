@@ -249,11 +249,19 @@ textarea {
 }
 
 .task-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  padding-inline-start: var(--space-2);
+  padding-inline-end: 4px;
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
+}
+
+.task-row--dragging {
+  z-index: 1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  cursor: grabbing;
 }
 
 .task-row:last-child {
@@ -270,13 +278,47 @@ textarea {
   height: 20px;
   margin: 0;
   accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.task-row__checkbox:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+/* Drag handle: touch-action none lets Android touch drag without scrolling the page (ADR-9). */
+.task-row__handle {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-secondary);
+  fill: currentColor;
+  cursor: grab;
+  touch-action: none;
+}
+
+.task-row__handle:hover:not(:disabled),
+.task-row__handle:focus-visible {
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.task-row__handle:disabled {
+  opacity: 0.4;
+  cursor: progress;
 }
 
 .task-row__select {
   flex: 1;
   min-width: 0;
   padding: var(--space-2);
-  padding-inline-start: var(--space-1);
   border: none;
   background: none;
   text-align: start;
@@ -297,6 +339,31 @@ textarea {
 .task-row--completed .task-row__label {
   text-decoration: line-through;
   color: var(--text-secondary);
+}
+
+/* Status/order error inside the list card */
+.list-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin: var(--space-1) var(--space-2);
+  padding: 10px 12px;
+  border: 1px solid var(--error);
+  border-radius: var(--radius-sm);
+  background: #fdeeee;
+  color: var(--error);
+  font-size: 14px;
+}
+
+.list-alert__message {
+  flex: 1 1 200px;
+  margin: 0;
+}
+
+.list-alert__refresh {
+  padding: 6px 14px;
+  font-size: 14px;
 }
 
 /* Task details */
@@ -469,4 +536,12 @@ textarea.field__input {
   margin-top: var(--space-2);
   max-width: 640px;
   font-size: 16px;
+}
+
+@media (max-width: 767px) {
+  /* A comfortable touch target for dragging on phones. */
+  .task-row__handle {
+    width: 44px;
+    height: 44px;
+  }
 }

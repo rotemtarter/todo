@@ -1,15 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { TaskInput } from '../../../shared/types.js';
 import { PRODUCT_TIME_ZONE, todayInTimeZone } from '../../../shared/validation.js';
-import { BadRequestError, readJsonObject, readTaskId, readTaskInput, sendError, sendJson } from '../../../server/http.js';
+import { BadRequestError, NOT_FOUND_MESSAGE, readJsonObject, readTaskId, readTaskInput, sendError, sendJson } from '../../../server/http.js';
 import {
   TaskNotFoundError,
   TaskValidationError,
   deleteTask,
   updateTaskDetails,
 } from '../../../server/tasksRepository.js';
-
-const NOT_FOUND_MESSAGE = 'המשימה לא נמצאה. ייתכן שנמחקה. רענן את הדף כדי לראות את הרשימה העדכנית.';
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'PATCH' && req.method !== 'DELETE') {

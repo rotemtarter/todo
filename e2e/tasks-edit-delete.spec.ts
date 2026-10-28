@@ -34,7 +34,7 @@ async function rowByTitle(title: string) {
 async function selectTask(page: Page, title: string) {
   await page.goto('/');
   await expect(page.locator('.task-row')).toHaveCount(3);
-  await page.getByRole('button', { name: title }).click();
+  await page.getByRole('button', { name: title, exact: true }).click();
   return page.locator('.task-details');
 }
 
@@ -43,14 +43,14 @@ test('edits all fields, saves, and the values survive a refresh', async ({ page 
   await details.getByLabel('כותרת').fill('ראשונה מעודכנת');
   await details.getByLabel('תיאור').fill('תיאור חדש');
   await details.getByLabel('תאריך יעד').fill('2031-02-20');
-  await details.getByRole('button', { name: 'שמור שינויים' }).click();
+  await details.getByRole('button', { name: 'שמור שינויים', exact: true }).click();
 
   await expect(details.getByRole('status')).toHaveText('השינויים נשמרו');
   await expect(page.locator('.task-row').nth(0)).toContainText('ראשונה מעודכנת');
   expect(await rowByTitle('ראשונה מעודכנת')).toMatchObject({ description: 'תיאור חדש', due_date: '2031-02-20', position: 0 });
 
   await page.reload();
-  await page.getByRole('button', { name: 'ראשונה מעודכנת' }).click();
+  await page.getByRole('button', { name: 'ראשונה מעודכנת', exact: true }).click();
   await expect(details.getByLabel('תיאור')).toHaveValue('תיאור חדש');
   await expect(details.getByLabel('תאריך יעד')).toHaveValue('2031-02-20');
 });
@@ -58,12 +58,12 @@ test('edits all fields, saves, and the values survive a refresh', async ({ page 
 test('a task with a past due date can be saved unchanged, but not moved to another past date', async ({ page }) => {
   const details = await selectTask(page, 'תאריך שעבר');
   await details.getByLabel('תיאור').fill('נוסף תיאור');
-  await details.getByRole('button', { name: 'שמור שינויים' }).click();
+  await details.getByRole('button', { name: 'שמור שינויים', exact: true }).click();
   await expect(details.getByRole('status')).toHaveText('השינויים נשמרו');
   expect(await rowByTitle('תאריך שעבר')).toMatchObject({ description: 'נוסף תיאור', due_date: '2020-03-01', completed: true });
 
   await details.getByLabel('תאריך יעד').fill('2020-03-02');
-  await details.getByRole('button', { name: 'שמור שינויים' }).click();
+  await details.getByRole('button', { name: 'שמור שינויים', exact: true }).click();
   await expect(details.getByText('תאריך היעד לא יכול להיות בעבר')).toBeVisible();
   expect((await rowByTitle('תאריך שעבר')).due_date).toBe('2020-03-01');
 });
@@ -71,19 +71,19 @@ test('a task with a past due date can be saved unchanged, but not moved to anoth
 test('unsaved changes are discarded on task switch, navigation and refresh', async ({ page }) => {
   const details = await selectTask(page, 'ראשונה');
   await details.getByLabel('כותרת').fill('טיוטה 1');
-  await page.getByRole('button', { name: 'שלישית' }).click();
-  await page.getByRole('button', { name: 'ראשונה' }).click();
+  await page.getByRole('button', { name: 'שלישית', exact: true }).click();
+  await page.getByRole('button', { name: 'ראשונה', exact: true }).click();
   await expect(details.getByLabel('כותרת')).toHaveValue('ראשונה');
 
   await details.getByLabel('כותרת').fill('טיוטה 2');
   await page.getByRole('link', { name: 'אודות' }).click();
   await page.getByRole('link', { name: 'דף הבית' }).click();
-  await page.getByRole('button', { name: 'ראשונה' }).click();
+  await page.getByRole('button', { name: 'ראשונה', exact: true }).click();
   await expect(details.getByLabel('כותרת')).toHaveValue('ראשונה');
 
   await details.getByLabel('כותרת').fill('טיוטה 3');
   await page.reload();
-  await page.getByRole('button', { name: 'ראשונה' }).click();
+  await page.getByRole('button', { name: 'ראשונה', exact: true }).click();
   await expect(details.getByLabel('כותרת')).toHaveValue('ראשונה');
   expect(await rowByTitle('ראשונה')).toBeDefined();
 });
@@ -98,12 +98,12 @@ test('a server error keeps the draft, and a retry succeeds', async ({ page }) =>
     }),
   );
   await details.getByLabel('תיאור').fill('טיוטה ששורדת');
-  await details.getByRole('button', { name: 'שמור שינויים' }).click();
+  await details.getByRole('button', { name: 'שמור שינויים', exact: true }).click();
   await expect(details.getByRole('alert')).toContainText('לא ניתן לשמור את השינויים');
   await expect(details.getByLabel('תיאור')).toHaveValue('טיוטה ששורדת');
 
   await page.unroute('**/api/tasks/*');
-  await details.getByRole('button', { name: 'שמור שינויים' }).click();
+  await details.getByRole('button', { name: 'שמור שינויים', exact: true }).click();
   await expect(details.getByRole('status')).toHaveText('השינויים נשמרו');
   expect((await rowByTitle('שלישית')).description).toBe('טיוטה ששורדת');
 });
@@ -112,23 +112,23 @@ test('saving a task deleted by another visitor shows a not-found message', async
   const details = await selectTask(page, 'שלישית');
   await client.query(`delete from public.tasks where title = 'שלישית'`);
   await details.getByLabel('כותרת').fill('שלישית שונתה');
-  await details.getByRole('button', { name: 'שמור שינויים' }).click();
+  await details.getByRole('button', { name: 'שמור שינויים', exact: true }).click();
   await expect(details.getByRole('alert')).toContainText('המשימה לא נמצאה');
   await expect(details.getByLabel('כותרת')).toHaveValue('שלישית שונתה');
 });
 
 test('delete: cancel keeps the task, confirm removes it after the server succeeds', async ({ page }) => {
   const details = await selectTask(page, 'ראשונה');
-  await details.getByRole('button', { name: 'מחק משימה' }).click();
+  await details.getByRole('button', { name: 'מחק משימה', exact: true }).click();
   const dialog = page.getByRole('alertdialog', { name: 'מחיקת משימה' });
   await expect(dialog).toContainText('האם אתה בטוח שברצונך למחוק את המשימה הזו?');
-  await dialog.getByRole('button', { name: 'ביטול' }).click();
+  await dialog.getByRole('button', { name: 'ביטול', exact: true }).click();
   await expect(dialog).toBeHidden();
   await expect(page.locator('.task-row')).toHaveCount(3);
   expect(await rowByTitle('ראשונה')).toBeDefined();
 
-  await details.getByRole('button', { name: 'מחק משימה' }).click();
-  await dialog.getByRole('button', { name: 'אישור' }).click();
+  await details.getByRole('button', { name: 'מחק משימה', exact: true }).click();
+  await dialog.getByRole('button', { name: 'אישור', exact: true }).click();
   await expect(dialog).toBeHidden();
   await expect(page.locator('.task-row')).toHaveCount(2);
   await expect(page.getByText('בחר משימה מהרשימה כדי לצפות בפרטיה')).toBeVisible();
@@ -138,17 +138,17 @@ test('delete: cancel keeps the task, confirm removes it after the server succeed
 
   await page.reload();
   await expect(page.locator('.task-row')).toHaveCount(2);
-  await expect(page.getByRole('button', { name: 'ראשונה' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'ראשונה', exact: true })).toHaveCount(0);
 });
 
 test('a failed delete keeps the task in the list and in the database', async ({ page }) => {
   const details = await selectTask(page, 'שלישית');
   await page.route('**/api/tasks/*', (route) => route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }));
-  await details.getByRole('button', { name: 'מחק משימה' }).click();
+  await details.getByRole('button', { name: 'מחק משימה', exact: true }).click();
   const dialog = page.getByRole('alertdialog');
-  await dialog.getByRole('button', { name: 'אישור' }).click();
+  await dialog.getByRole('button', { name: 'אישור', exact: true }).click();
   await expect(dialog.getByRole('alert')).toContainText('לא ניתן למחוק את המשימה');
-  await dialog.getByRole('button', { name: 'ביטול' }).click();
+  await dialog.getByRole('button', { name: 'ביטול', exact: true }).click();
   await expect(page.locator('.task-row')).toHaveCount(3);
   await expect(details.getByLabel('כותרת')).toHaveValue('שלישית');
   expect(await rowByTitle('שלישית')).toBeDefined();

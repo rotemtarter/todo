@@ -87,6 +87,48 @@ export async function deleteTask(id: string): Promise<void> {
   }
 }
 
+export async function setTaskCompleted(id: string, completed: boolean): Promise<Task> {
+  let response: Response;
+  try {
+    response = await fetch(`/api/tasks/${encodeURIComponent(id)}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ completed }),
+    });
+  } catch {
+    throw new ApiRequestError('network');
+  }
+  const body: unknown = await response.json().catch(() => null);
+  if (response.status !== 200) {
+    throw errorFromBody(response.status, body);
+  }
+  if (!body || typeof body !== 'object' || (body as Task).id !== id) {
+    throw new ApiRequestError('invalid response', response.status);
+  }
+  return body as Task;
+}
+
+export async function reorderTasks(orderedIds: string[]): Promise<Task[]> {
+  let response: Response;
+  try {
+    response = await fetch('/api/tasks/order', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ orderedIds }),
+    });
+  } catch {
+    throw new ApiRequestError('network');
+  }
+  const body: unknown = await response.json().catch(() => null);
+  if (response.status !== 200) {
+    throw errorFromBody(response.status, body);
+  }
+  if (!Array.isArray(body)) {
+    throw new ApiRequestError('invalid response', response.status);
+  }
+  return body as Task[];
+}
+
 function errorFromBody(status: number, body: unknown): ApiRequestError {
   const error = (body as { error?: { code?: unknown; message?: unknown; field?: unknown } } | null)?.error;
   const text = (value: unknown) => (typeof value === 'string' ? value : undefined);

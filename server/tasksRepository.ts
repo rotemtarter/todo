@@ -17,6 +17,13 @@ export class TaskNotFoundError extends Error {
   }
 }
 
+export class OrderConflictError extends Error {
+  constructor() {
+    super('Order does not match the current task list');
+    this.name = 'OrderConflictError';
+  }
+}
+
 export class TaskValidationError extends Error {
   constructor(readonly errors: ValidationError[]) {
     super('Task validation failed');
@@ -147,6 +154,59 @@ export async function deleteTask(id: string): Promise<void> {
           where t.id = r.id and t.position <> r.new_position`,
       );
       await client.query('commit');
+    } catch (error) {
+      await client.query('rollback');
+      throw error;
+    }
+  } finally {
+    client.release();
+  }
+}
+
+/** Saves an explicit status in one statement, without the list lock: it never touches position or details (ADR-9). */
+export async function setTaskCompleted(id: string, completed: boolean): Promise<Task> {
+  const { rows } = await getPool().query<TaskRow>(
+    `update public.tasks
+        set completed = $2, updated_at = now()
+      where id = $1
+      returning ${TASK_COLUMNS}`,
+    [id, completed],
+  );
+  if (rows.length === 0) {
+    throw new TaskNotFoundError();
+  }
+  return toTask(rows[0]);
+}
+
+/**
+ * Replaces the list order under the shared list lock. The ids must match the stored set one-to-one,
+ * otherwise nothing changes (OrderConflictError). Positions become 0..N-1; returns the reordered list.
+ */
+export async function reorderTasks(orderedIds: string[]): Promise<Task[]> {
+  const client = await getPool().connect();
+  try {
+    await client.query('begin');
+    try {
+      await lockTaskList(client);
+      const { rows: existing } = await client.query<{ id: string }>('select id from public.tasks');
+      const stored = new Set(existing.map((row) => row.id));
+      if (stored.size !== orderedIds.length || !orderedIds.every((id) => stored.has(id))) {
+        throw new OrderConflictError();
+      }
+      await client.query(
+        `update public.tasks t
+            set position = (o.ord - 1)::int, updated_at = now()
+           from unnest($1::uuid[]) with ordinality as o(id, ord)
+          where t.id = o.id and t.position <> o.ord - 1`,
+        [orderedIds],
+      );
+      const { rows } = await client.query<TaskRow>(
+        `select ${TASK_COLUMNS}
+           from public.tasks
+          order by position asc, id asc`,
+      );
+      await client.query('commit');
+      return rows.map(toTask);
     } catch (error) {
       await client.query('rollback');
       throw error;

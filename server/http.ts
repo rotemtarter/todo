@@ -2,6 +2,10 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { TaskInput } from '../shared/types.js';
 
 export const MAX_BODY_BYTES = 16 * 1024;
+// 1,000 UUIDs are about 39KB (ADR-9).
+export const ORDER_MAX_BODY_BYTES = 64 * 1024;
+
+export const NOT_FOUND_MESSAGE = 'המשימה לא נמצאה. ייתכן שנמחקה. רענן את הדף כדי לראות את הרשימה העדכנית.';
 
 export function sendJson(res: VercelResponse, status: number, body: unknown): void {
   res.setHeader('Cache-Control', 'no-store');
@@ -78,4 +82,23 @@ export function readTaskInput(body: Record<string, unknown>, requireAll = false)
     return value;
   };
   return { title: pick('title'), description: pick('description'), dueDate: pick('dueDate') };
+}
+
+/** Reads {completed: boolean} (PATCH /api/tasks/:id/status). Other fields are ignored. */
+export function readCompleted(body: Record<string, unknown>): boolean {
+  if (typeof body.completed !== 'boolean') throw new BadRequestError(400, 'INVALID_REQUEST', INVALID_REQUEST);
+  return body.completed;
+}
+
+/** Reads {orderedIds}: up to maxIds distinct UUIDs (PUT /api/tasks/order). */
+export function readOrderedIds(body: Record<string, unknown>, maxIds: number): string[] {
+  const ids = body.orderedIds;
+  if (!Array.isArray(ids) || ids.length > maxIds || !ids.every(isUuid)) {
+    throw new BadRequestError(400, 'INVALID_REQUEST', INVALID_REQUEST);
+  }
+  const normalized = ids.map((id) => id.toLowerCase());
+  if (new Set(normalized).size !== normalized.length) {
+    throw new BadRequestError(400, 'INVALID_REQUEST', INVALID_REQUEST);
+  }
+  return normalized;
 }

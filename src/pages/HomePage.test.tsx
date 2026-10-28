@@ -126,7 +126,7 @@ describe('HomePage – create task', () => {
     const rows = screen.getAllByRole('listitem');
     expect(rows).toHaveLength(2);
     expect(rows[1]).toHaveTextContent('חדשה');
-    expect(within(rows[1]).getByRole('button')).toHaveAttribute('aria-pressed', 'true');
+    expect(within(rows[1]).getByRole('button', { name: 'חדשה' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByLabelText('תיאור')).toHaveValue('פרטים');
   });
 
@@ -361,5 +361,84 @@ describe('HomePage – delete task', () => {
     expect(await within(dialog).findByRole('alert')).toHaveTextContent('לא ניתן למחוק');
     expect(screen.getAllByRole('listitem')).toHaveLength(2);
     expect(details().getByLabelText('כותרת')).toHaveValue('שנייה');
+  });
+});
+
+describe('HomePage – task status', () => {
+  const checkbox = (name: string) => screen.getByRole('checkbox', { name: `סימון השלמה: ${name}` });
+
+  it('sends the explicit value, disables the checkbox until the answer, and keeps the row in place', async () => {
+    let resolve: (response: Response) => void = () => {};
+    let sent: Record<string, unknown> | undefined;
+    mockWrites([existing, second], (method, url, body) => {
+      sent = { method, url, ...body };
+      return new Promise((r) => (resolve = r));
+    });
+    render(<HomePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'סימון השלמה: קיימת' }));
+
+    expect(sent).toEqual({ method: 'PATCH', url: '/api/tasks/a/status', completed: true });
+    expect(checkbox('קיימת')).toBeChecked();
+    expect(checkbox('קיימת')).toBeDisabled();
+    resolve(json({ ...existing, completed: true }));
+    await waitFor(() => expect(checkbox('קיימת')).toBeEnabled());
+    expect(checkbox('קיימת')).toBeChecked();
+    const rows = screen.getAllByRole('listitem');
+    expect(rows[0]).toHaveTextContent('קיימת');
+    expect(rows[0]).toHaveClass('task-row--completed');
+  });
+
+  it('can return a completed task to "to do"', async () => {
+    let sent: Record<string, unknown> | undefined;
+    mockWrites([second], async (_m, _u, body) => {
+      sent = body;
+      return json({ ...second, completed: false });
+    });
+    render(<HomePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'סימון השלמה: שנייה' }));
+    await waitFor(() => expect(checkbox('שנייה')).toBeEnabled());
+    expect(sent).toEqual({ completed: false });
+    expect(checkbox('שנייה')).not.toBeChecked();
+  });
+
+  it('a failure restores the previous value and shows a message in the list', async () => {
+    mockWrites([existing], async () =>
+      json({ error: { code: 'TASK_NOT_FOUND', message: 'המשימה לא נמצאה. ייתכן שנמחקה.' } }, 404),
+    );
+    render(<HomePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'סימון השלמה: קיימת' }));
+    const list = within(document.querySelector('.task-list') as HTMLElement);
+    expect(await list.findByRole('alert')).toHaveTextContent('המשימה לא נמצאה');
+    expect(checkbox('קיימת')).not.toBeChecked();
+    expect(list.queryByRole('button', { name: 'רענן את הרשימה' })).not.toBeInTheDocument();
+  });
+
+  it('a network failure restores the value with a connection message', async () => {
+    mockWrites([existing], async () => Promise.reject(new TypeError('offline')));
+    render(<HomePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'סימון השלמה: קיימת' }));
+    expect(await screen.findByText(/בדוק את החיבור לאינטרנט/)).toBeInTheDocument();
+    expect(checkbox('קיימת')).not.toBeChecked();
+  });
+
+  it('toggling the selected task keeps the unsaved draft and saves nothing else', async () => {
+    const fetchMock = mockWrites([existing, second], async (_m, _u, body) => json({ ...second, ...body }));
+    render(<HomePage />);
+    await select('שנייה');
+    fireEvent.change(details().getByLabelText('כותרת'), { target: { value: 'טיוטה' } });
+    fireEvent.click(checkbox('שנייה'));
+    await waitFor(() => expect(checkbox('שנייה')).toBeEnabled());
+    expect(checkbox('שנייה')).not.toBeChecked();
+    expect(details().getByLabelText('כותרת')).toHaveValue('טיוטה');
+    const urls = fetchMock.mock.calls.filter(([, init]) => init?.method === 'PATCH').map(([url]) => url);
+    expect(urls).toEqual(['/api/tasks/b/status']);
+  });
+
+  it('each row has a drag handle separate from the text and checkbox', async () => {
+    mockWrites([existing, second], async () => json({}, 500));
+    render(<HomePage />);
+    const handle = await screen.findByRole('button', { name: 'גרור כדי לשנות את מיקום המשימה: קיימת' });
+    expect(handle).toHaveClass('task-row__handle');
+    expect(screen.getByRole('button', { name: 'קיימת' })).not.toBe(handle);
   });
 });

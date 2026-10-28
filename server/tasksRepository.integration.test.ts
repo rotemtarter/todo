@@ -2,12 +2,15 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type pg from 'pg';
 import { createDevClient, restoreSnapshot, takeSnapshot } from '../test-support/devSnapshot';
 import {
+  OrderConflictError,
   TaskLimitError,
   TaskNotFoundError,
   TaskValidationError,
   createTask,
   deleteTask,
   listTasks,
+  reorderTasks,
+  setTaskCompleted,
   updateTaskDetails,
 } from './tasksRepository';
 import { getPool } from './db';
@@ -248,6 +251,160 @@ describe('deleteTask against the Dev database', () => {
       // A create that commits after the delete may leave one gap at the end, but never a duplicate.
       expect(new Set(list.map((t) => t.position)).size).toBe(5);
       expect(list.at(-1)?.title).toBe('חדשה במקביל');
+    } finally {
+      await other.db.getPool().end();
+    }
+  });
+});
+
+async function idsInOrder(): Promise<string[]> {
+  const { rows } = await client.query<{ id: string }>('select id from public.tasks order by position, id');
+  return rows.map((row) => row.id);
+}
+
+async function expectConsecutivePositions() {
+  const { rows } = await client.query<{ position: number }>('select position from public.tasks order by position, id');
+  expect(rows.map((row) => row.position)).toEqual(rows.map((_, index) => index));
+}
+
+describe('setTaskCompleted against the Dev database', () => {
+  it('sets the explicit value both ways, changing only completed and updated_at', async () => {
+    await client.query('delete from public.tasks');
+    const { rows } = await client.query(
+      `insert into public.tasks (title, description, due_date, position, updated_at)
+       values ('סטטוס', 'תיאור', '2030-01-01', 4, now() - interval '1 day') returning id, updated_at`,
+    );
+    const id = rows[0].id;
+    expect(await setTaskCompleted(id, true)).toMatchObject({ completed: true, position: 4, title: 'סטטוס' });
+    expect(await setTaskCompleted(id, true)).toMatchObject({ completed: true });
+    const saved = await rowById(id);
+    expect(saved).toMatchObject({ completed: true, position: 4, title: 'סטטוס', description: 'תיאור', due_date: '2030-01-01' });
+    expect(saved.updated_at.getTime()).toBeGreaterThan(rows[0].updated_at.getTime());
+    expect(await setTaskCompleted(id, false)).toMatchObject({ completed: false });
+  });
+
+  it('throws TaskNotFoundError for a missing task', async () => {
+    await expect(setTaskCompleted(MISSING_ID, true)).rejects.toBeInstanceOf(TaskNotFoundError);
+  });
+});
+
+describe('reorderTasks against the Dev database', () => {
+  it('saves the exact order with positions 0..N-1, keeping other fields', async () => {
+    await client.query('delete from public.tasks');
+    await client.query(
+      `insert into public.tasks (title, completed, position) values ('א', false, 0), ('ב', true, 3), ('ג', false, 8)`,
+    );
+    const [a, b, c] = await idsInOrder();
+    const result = await reorderTasks([c, a, b]);
+    expect(result.map((t) => [t.id, t.position])).toEqual([
+      [c, 0],
+      [a, 1],
+      [b, 2],
+    ]);
+    expect(await idsInOrder()).toEqual([c, a, b]);
+    expect((await rowById(b)).completed).toBe(true);
+  });
+
+  it('rejects a missing, extra or unknown id with OrderConflictError and changes nothing', async () => {
+    await fillTasks(3);
+    const before = await idsInOrder();
+    const [a, b, c] = before;
+    await expect(reorderTasks([b, a])).rejects.toBeInstanceOf(OrderConflictError);
+    await expect(reorderTasks([c, b, a, MISSING_ID])).rejects.toBeInstanceOf(OrderConflictError);
+    await expect(reorderTasks([c, b, MISSING_ID])).rejects.toBeInstanceOf(OrderConflictError);
+    expect(await idsInOrder()).toEqual(before);
+  });
+
+  it('accepts an empty order only for an empty list', async () => {
+    await client.query('delete from public.tasks');
+    expect(await reorderTasks([])).toEqual([]);
+    await fillTasks(1);
+    await expect(reorderTasks([])).rejects.toBeInstanceOf(OrderConflictError);
+  });
+
+  it('two concurrent reorders from two instances: the last one wins, positions stay consecutive', async () => {
+    await fillTasks(6);
+    const original = await idsInOrder();
+    const first = [...original].reverse();
+    const second = [...original.slice(3), ...original.slice(0, 3)];
+    const other = await loadSecondInstance();
+    try {
+      await Promise.all([reorderTasks(first), other.repository.reorderTasks(second)]);
+      expect([first, second]).toContainEqual(await idsInOrder());
+      await expectConsecutivePositions();
+    } finally {
+      await other.db.getPool().end();
+    }
+  });
+
+  it('create during a reorder: atomic, no lost task, no partial order, no duplicate position', async () => {
+    for (let round = 0; round < 3; round++) {
+      await fillTasks(5);
+      const original = await idsInOrder();
+      const requested = [...original].reverse();
+      const other = await loadSecondInstance();
+      try {
+        const [reorder, created] = await Promise.allSettled([
+          reorderTasks(requested),
+          other.repository.createTask({ title: 'נוצרה בזמן גרירה', description: null, dueDate: null }),
+        ]);
+        expect(created.status).toBe('fulfilled');
+        const newId = created.status === 'fulfilled' ? created.value.id : '';
+        const ids = await idsInOrder();
+        if (reorder.status === 'fulfilled') {
+          expect(ids).toEqual([...requested, newId]);
+        } else {
+          expect(reorder.reason).toBeInstanceOf(OrderConflictError);
+          expect(ids).toEqual([...original, newId]);
+        }
+        await expectConsecutivePositions();
+      } finally {
+        await other.db.getPool().end();
+      }
+    }
+  });
+
+  it('delete during a reorder: atomic, the deleted task never returns, positions stay consecutive', async () => {
+    for (let round = 0; round < 3; round++) {
+      await fillTasks(5);
+      const original = await idsInOrder();
+      const requested = [...original].reverse();
+      const removed = original[2];
+      const other = await loadSecondInstance();
+      try {
+        const [reorder, deleted] = await Promise.allSettled([
+          reorderTasks(requested),
+          other.repository.deleteTask(removed),
+        ]);
+        expect(deleted.status).toBe('fulfilled');
+        const ids = await idsInOrder();
+        if (reorder.status === 'fulfilled') {
+          expect(ids).toEqual(requested.filter((id) => id !== removed));
+        } else {
+          expect(reorder.reason).toBeInstanceOf(OrderConflictError);
+          expect(ids).toEqual(original.filter((id) => id !== removed));
+        }
+        await expectConsecutivePositions();
+      } finally {
+        await other.db.getPool().end();
+      }
+    }
+  });
+
+  it('status and detail saves during a reorder do not overwrite each other', async () => {
+    await fillTasks(4);
+    const original = await idsInOrder();
+    const target = original[0];
+    const requested = [...original].reverse();
+    const other = await loadSecondInstance();
+    try {
+      await Promise.all([
+        reorderTasks(requested),
+        other.repository.setTaskCompleted(target, true),
+        updateTaskDetails(target, { title: 'עודכנה', description: null, dueDate: null }, TODAY),
+      ]);
+      expect(await idsInOrder()).toEqual(requested);
+      expect(await rowById(target)).toMatchObject({ title: 'עודכנה', completed: true, position: 3 });
     } finally {
       await other.db.getPool().end();
     }

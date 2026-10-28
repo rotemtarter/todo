@@ -37,13 +37,13 @@ test('shows the list, no initial selection, and details of a selected task', asy
   await expect(rows.nth(2).getByRole('checkbox')).toBeChecked();
   await expect(rows.nth(2).locator('.task-row__label')).toHaveCSS('text-decoration-line', 'line-through');
 
-  await page.getByRole('button', { name: 'לקנות מצרכים' }).click();
+  await page.getByRole('button', { name: 'לקנות מצרכים', exact: true }).click();
   await expect(page.getByLabel('כותרת')).toHaveValue('לקנות מצרכים');
   await expect(page.getByLabel('תיאור')).toHaveValue('חלב ולחם');
   await expect(page.getByLabel('תאריך יעד')).toHaveValue('2030-01-15');
   await expect(page.getByText('בחר משימה מהרשימה כדי לצפות בפרטיה')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'שמור שינויים' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'מחק משימה' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'שמור שינויים', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'מחק משימה', exact: true })).toBeVisible();
 });
 
 test('a refresh shows database changes, and nothing is kept in local storage', async ({ page }) => {

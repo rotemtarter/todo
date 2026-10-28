@@ -24,3 +24,13 @@ export interface TaskInput {
   /** Date only, formatted YYYY-MM-DD, or null. */
   dueDate: string | null;
 }
+
+// Body of PATCH /api/tasks/:id/status: an explicit value, not a toggle.
+export interface TaskStatusInput {
+  completed: boolean;
+}
+
+// Body of PUT /api/tasks/order: every task id the client knows, in the new order.
+export interface TaskOrderInput {
+  orderedIds: string[];
+}
