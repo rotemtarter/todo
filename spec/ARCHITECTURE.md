@@ -306,3 +306,11 @@ Chrome Desktop / Chrome Android (PWA)
 **החלטה:** `@playwright/test` כ-devDependency; דפדפן Chromium מותקן לתוך `node_modules/playwright-core/.local-browsers` (`PLAYWRIGHT_BROWSERS_PATH=0`) על ידי `scripts/install-browser.mjs`, שרץ אוטומטית כ-`postinstall` של `npm install`. `npm run test:e2e` מריץ את `e2e/*.spec.ts` מול `vercel dev` (פורט 3000) ופרויקט ה-Dev, בשני מצבים: Desktop Chrome ו-Mobile Chrome (Pixel 7). לפני ההרצה נשמר עותק של טבלת `tasks` ב-Dev ובסיומה הוא מוחזר (`test-support/devSnapshot.ts`, משותף עם בדיקות ה-Integration, לפי ADR-7). שגיאות שרת ומצב לא-מקוון מדומים בדפדפן (`page.route`, `setOffline`). מול Production מבוצעות רק בדיקות קריאה.
 
 **השלכות:** הרצה ראשונה של `npm install` מורידה כ-150MB. גרירה במגע אמיתי והתקנת PWA בטלפון נבדקות ידנית. בזמן הרצת E2E הרשימה ב-Dev משתנה זמנית.
+
+### ADR-12: פקודת ההרצה המקומית ו-SPA fallback מצומצם
+
+**הקשר:** סעיף 2.9 קובע הרצה מקומית ב-`vercel dev`. Vercel CLI מסרב לרוץ כשסקריפט `dev` ב-`package.json` עצמו מפעיל `vercel dev` (`DEV_RECURSIVE_INVOCATION`). בנוסף, Rewrite כללי של כל נתיב שאינו `/api/` ל-`index.html` תפס תחת `vercel dev` גם את קובצי הקוד ש-Vite מגיש (`/src/...`, `/@vite/...`), והדף נטען ריק.
+
+**החלטה:** ההרצה המקומית היא `npm start` (= `vercel dev --listen 3000`); `npm run dev` מריץ את Vite לבד (ללא `/api`), ו-Vercel משתמש בו כ-Dev Command. ה-Rewrite ב-`vercel.json` הוא `/((?!api/|@)[^.]*)` → `/index.html`: נתיבי דפים ללא נקודה (כמו `/about`) מקבלים את ה-SPA, וקבצים (עם סיומת), `/@...` ו-`/api/*` אינם מושפעים. בדיקות API נמצאות ב-`tests/`, ולא בתוך `api/`, כי כל קובץ תחת `api/` הופך ל-Function ציבורית.
+
+**השלכות:** Playwright מריץ `npm start`. נתיב דף עתידי שיכיל נקודה לא יקבל SPA fallback – אין כזה ב-PRD.
