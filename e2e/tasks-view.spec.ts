@@ -42,8 +42,8 @@ test('shows the list, no initial selection, and details of a selected task', asy
   await expect(page.getByLabel('תיאור')).toHaveValue('חלב ולחם');
   await expect(page.getByLabel('תאריך יעד')).toHaveValue('2030-01-15');
   await expect(page.getByText('בחר משימה מהרשימה כדי לצפות בפרטיה')).toHaveCount(0);
-  // Editing and deleting arrive in Milestone 3.
-  await expect(page.getByRole('button', { name: /שמור|מחק/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'שמור שינויים' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'מחק משימה' })).toBeVisible();
 });
 
 test('a refresh shows database changes, and nothing is kept in local storage', async ({ page }) => {

@@ -1,5 +1,5 @@
 import type { Task, TaskInput } from '../shared/types.js';
-import { TASK_LIMIT } from '../shared/validation.js';
+import { TASK_LIMIT, validateTaskInput, type ValidationError } from '../shared/validation.js';
 import { getPool } from './db.js';
 import { lockTaskList } from './listLock.js';
 
@@ -7,6 +7,20 @@ export class TaskLimitError extends Error {
   constructor() {
     super('Task limit reached');
     this.name = 'TaskLimitError';
+  }
+}
+
+export class TaskNotFoundError extends Error {
+  constructor() {
+    super('Task not found');
+    this.name = 'TaskNotFoundError';
+  }
+}
+
+export class TaskValidationError extends Error {
+  constructor(readonly errors: ValidationError[]) {
+    super('Task validation failed');
+    this.name = 'TaskValidationError';
   }
 }
 
@@ -66,6 +80,73 @@ export async function createTask(input: TaskInput): Promise<Task> {
       );
       await client.query('commit');
       return toTask(rows[0]);
+    } catch (error) {
+      await client.query('rollback');
+      throw error;
+    }
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Replaces title, description and due date (never completed/position). The saved due date is read
+ * under a row lock and validated in the same transaction, so the "past date only if changed" rule
+ * checks the value that is actually overwritten; concurrent saves are serialized: last write wins (ADR-8).
+ */
+export async function updateTaskDetails(id: string, input: TaskInput, today: string): Promise<Task> {
+  const client = await getPool().connect();
+  try {
+    await client.query('begin');
+    try {
+      const { rows: saved } = await client.query<{ due_date: string | null }>(
+        'select due_date from public.tasks where id = $1 for update',
+        [id],
+      );
+      if (saved.length === 0) {
+        throw new TaskNotFoundError();
+      }
+      const result = validateTaskInput(input, today, saved[0].due_date);
+      if (!result.ok) {
+        throw new TaskValidationError(result.errors);
+      }
+      const { rows } = await client.query<TaskRow>(
+        `update public.tasks
+            set title = $2, description = $3, due_date = $4, updated_at = now()
+          where id = $1
+          returning ${TASK_COLUMNS}`,
+        [id, result.value.title, result.value.description, result.value.dueDate],
+      );
+      await client.query('commit');
+      return toTask(rows[0]);
+    } catch (error) {
+      await client.query('rollback');
+      throw error;
+    }
+  } finally {
+    client.release();
+  }
+}
+
+/** Deletes a task under the shared list lock and renumbers positions to 0..N-1 in the existing order. */
+export async function deleteTask(id: string): Promise<void> {
+  const client = await getPool().connect();
+  try {
+    await client.query('begin');
+    try {
+      await lockTaskList(client);
+      const { rowCount } = await client.query('delete from public.tasks where id = $1', [id]);
+      if (rowCount === 0) {
+        throw new TaskNotFoundError();
+      }
+      await client.query(
+        `update public.tasks t
+            set position = r.new_position
+           from (select id, (row_number() over (order by position, id) - 1)::int as new_position
+                   from public.tasks) r
+          where t.id = r.id and t.position <> r.new_position`,
+      );
+      await client.query('commit');
     } catch (error) {
       await client.query('rollback');
       throw error;

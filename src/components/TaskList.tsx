@@ -13,7 +13,7 @@ interface TaskListProps {
 export default function TaskList({ status, tasks, selectedId, onSelect }: TaskListProps) {
   return (
     <section className="card task-list" aria-labelledby="task-list-title">
-      <h2 id="task-list-title" className="card__title">
+      <h2 id="task-list-title" className="card__title" tabIndex={-1}>
         רשימת משימות
       </h2>
 

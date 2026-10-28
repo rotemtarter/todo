@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { TaskInput } from '../shared/types.js';
 
 export const MAX_BODY_BYTES = 16 * 1024;
 
@@ -47,4 +48,34 @@ export function readJsonObject(req: VercelRequest, maxBytes = MAX_BODY_BYTES): R
     throw new BadRequestError(413, 'PAYLOAD_TOO_LARGE', INVALID_REQUEST);
   }
   return body as Record<string, unknown>;
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isUuid(value: unknown): value is string {
+  return typeof value === 'string' && UUID_PATTERN.test(value);
+}
+
+/** The task id from the dynamic route segment, or throws BadRequestError when it isn't a UUID. */
+export function readTaskId(req: VercelRequest): string {
+  const id = req.query?.id;
+  if (!isUuid(id)) {
+    throw new BadRequestError(400, 'INVALID_ID', INVALID_REQUEST);
+  }
+  return id;
+}
+
+/**
+ * Reads {title, description, dueDate}; each must be a string or null. Other fields are ignored.
+ * With `requireAll` (PATCH, ADR-8) a missing key is rejected; otherwise it counts as null.
+ */
+export function readTaskInput(body: Record<string, unknown>, requireAll = false): TaskInput {
+  const pick = (key: string): string | null => {
+    if (requireAll && !(key in body)) throw new BadRequestError(400, 'INVALID_REQUEST', INVALID_REQUEST);
+    const value = body[key];
+    if (value === undefined || value === null) return null;
+    if (typeof value !== 'string') throw new BadRequestError(400, 'INVALID_REQUEST', INVALID_REQUEST);
+    return value;
+  };
+  return { title: pick('title'), description: pick('description'), dueDate: pick('dueDate') };
 }

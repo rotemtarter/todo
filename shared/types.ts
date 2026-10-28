@@ -17,7 +17,7 @@ export interface ApiError {
   };
 }
 
-// Body of POST /api/tasks (and, later, PATCH /api/tasks/:id).
+// Body of POST /api/tasks and PATCH /api/tasks/:id.
 export interface TaskInput {
   title: string | null;
   description: string | null;

@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { TaskInput } from '../../shared/types.js';
 import { MESSAGES, PRODUCT_TIME_ZONE, todayInTimeZone, validateTaskInput } from '../../shared/validation.js';
-import { BadRequestError, readJsonObject, sendError, sendJson } from '../../server/http.js';
+import { BadRequestError, readJsonObject, readTaskInput, sendError, sendJson } from '../../server/http.js';
 import { TaskLimitError, createTask, listTasks } from '../../server/tasksRepository.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
@@ -23,17 +23,6 @@ async function handleList(res: VercelResponse): Promise<void> {
     console.error('GET /api/tasks failed:', error instanceof Error ? error.message : 'unknown error');
     sendError(res, 503, 'SERVICE_UNAVAILABLE', 'לא ניתן לטעון את המשימות כרגע. נסה שוב מאוחר יותר.');
   }
-}
-
-// Reads {title, description, dueDate}; each must be a string or null (missing = null). Other fields are ignored.
-function readTaskInput(body: Record<string, unknown>): TaskInput {
-  const pick = (key: string): string | null => {
-    const value = body[key];
-    if (value === undefined || value === null) return null;
-    if (typeof value !== 'string') throw new BadRequestError(400, 'INVALID_REQUEST', 'הבקשה אינה תקינה');
-    return value;
-  };
-  return { title: pick('title'), description: pick('description'), dueDate: pick('dueDate') };
 }
 
 async function handleCreate(req: VercelRequest, res: VercelResponse): Promise<void> {

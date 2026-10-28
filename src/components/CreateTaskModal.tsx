@@ -1,17 +1,15 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import type { Task } from '../../shared/types';
 import { validateTaskInput, type TaskField } from '../../shared/validation';
-import { ApiRequestError, createTask } from '../api/tasksClient';
+import { createTask } from '../api/tasksClient';
 import { localToday } from '../utils/date';
+import { errorsByField, toFieldErrors, type FieldErrors } from '../utils/formErrors';
 
 interface CreateTaskModalProps {
   onCreated: (task: Task) => void;
   onClose: () => void;
 }
 
-type FieldErrors = Partial<Record<TaskField, string>>;
-
-const NETWORK_ERROR = 'לא ניתן להתחבר לשרת. בדוק את החיבור לאינטרנט ונסה שוב.';
 const SAVE_ERROR = 'לא ניתן לשמור את המשימה כרגע. נסה שוב.';
 
 // The draft lives only in this component; the parent unmounts it on close, so every opening starts fresh.
@@ -42,9 +40,7 @@ export default function CreateTaskModal({ onCreated, onClose }: CreateTaskModalP
 
     const result = validateTaskInput({ title, description, dueDate: dueDate || null }, localToday());
     if (!result.ok) {
-      const next: FieldErrors = {};
-      for (const error of result.errors) next[error.field] ??= error.message;
-      setErrors(next);
+      setErrors(errorsByField(result.errors));
       return;
     }
 
@@ -54,7 +50,7 @@ export default function CreateTaskModal({ onCreated, onClose }: CreateTaskModalP
       onCreated(await createTask(result.value));
     } catch (error) {
       setSaving(false);
-      setErrors(toFieldErrors(error));
+      setErrors(toFieldErrors(error, SAVE_ERROR));
     }
   }
 
@@ -157,16 +153,4 @@ export default function CreateTaskModal({ onCreated, onClose }: CreateTaskModalP
       </div>
     </div>
   );
-}
-
-function toFieldErrors(error: unknown): FieldErrors {
-  if (!(error instanceof ApiRequestError) || error.status === undefined) {
-    return { form: NETWORK_ERROR };
-  }
-  const message = error.userMessage ?? SAVE_ERROR;
-  const field = error.field as TaskField | undefined;
-  if (error.status === 422 && field && field !== 'form') {
-    return { [field]: message };
-  }
-  return { form: message };
 }

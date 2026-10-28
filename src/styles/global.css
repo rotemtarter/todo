@@ -153,6 +153,26 @@ textarea {
   background: var(--primary-soft);
 }
 
+.button--danger {
+  background: var(--surface);
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.button--danger:hover:not(:disabled) {
+  background: #fdeeee;
+}
+
+.button--danger-solid {
+  background: var(--error);
+  border-color: var(--error);
+  color: #ffffff;
+}
+
+.button--danger-solid:hover:not(:disabled) {
+  background: #d94141;
+}
+
 .button:disabled {
   background: var(--border);
   border-color: var(--border);
@@ -313,10 +333,6 @@ textarea {
   font-size: 16px;
 }
 
-.field__input[readonly] {
-  background: var(--input-background);
-}
-
 .field__input--multiline {
   resize: vertical;
   min-height: 112px;
@@ -350,6 +366,20 @@ textarea.field__input {
   background: #fdeeee;
   color: #b42318;
   font-size: 14px;
+}
+
+.form-success {
+  font-size: 14px;
+  color: var(--success);
+}
+
+.task-details__actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.task-details__actions .button {
+  flex: 1;
 }
 
 /* Modal */
@@ -407,6 +437,17 @@ textarea.field__input {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.modal--small {
+  max-width: 400px;
+}
+
+.modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
   padding: var(--space-3);
 }
 

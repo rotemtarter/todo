@@ -43,6 +43,23 @@ export default function HomePage() {
     [closeModal],
   );
 
+  // Take only the detail fields from the response, so completed/position are never overwritten (ADR-9).
+  const handleSaved = useCallback((updated: Task) => {
+    setTasks((current) =>
+      current.map((task) =>
+        task.id === updated.id
+          ? { ...task, title: updated.title, description: updated.description, dueDate: updated.dueDate }
+          : task,
+      ),
+    );
+  }, []);
+
+  const handleDeleted = useCallback((id: string) => {
+    setTasks((current) => current.filter((task) => task.id !== id));
+    setSelectedId(null);
+    document.getElementById('task-list-title')?.focus();
+  }, []);
+
   const selectedTask = tasks.find((task) => task.id === selectedId) ?? null;
   const listFull = status === 'ready' && tasks.length >= TASK_LIMIT;
   // Without a loaded list the client can't enforce the limit, so adding waits for it.
@@ -72,7 +89,8 @@ export default function HomePage() {
       </div>
       <div className="home-layout">
         <TaskList status={status} tasks={tasks} selectedId={selectedId} onSelect={setSelectedId} />
-        <TaskDetails task={selectedTask} />
+        {/* Keyed by task: switching tasks discards the unsaved draft. */}
+        <TaskDetails key={selectedId ?? 'none'} task={selectedTask} onSaved={handleSaved} onDeleted={handleDeleted} />
       </div>
       {creating && <CreateTaskModal onCreated={handleCreated} onClose={closeModal} />}
     </>
