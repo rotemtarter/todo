@@ -16,3 +16,11 @@ export interface ApiError {
     field?: string;
   };
 }
+
+// Body of POST /api/tasks (and, later, PATCH /api/tasks/:id).
+export interface TaskInput {
+  title: string | null;
+  description: string | null;
+  /** Date only, formatted YYYY-MM-DD, or null. */
+  dueDate: string | null;
+}
