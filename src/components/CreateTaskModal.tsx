@@ -4,6 +4,7 @@ import { validateTaskInput, type TaskField } from '../../shared/validation';
 import { createTask } from '../api/tasksClient';
 import { localToday } from '../utils/date';
 import { errorsByField, toFieldErrors, type FieldErrors } from '../utils/formErrors';
+import { AlertIcon, CloseIcon } from './Icons';
 
 interface CreateTaskModalProps {
   onCreated: (task: Task) => void;
@@ -64,9 +65,7 @@ export default function CreateTaskModal({ onCreated, onClose }: CreateTaskModalP
             הוספת משימה
           </h2>
           <button type="button" className="modal__close" aria-label="סגירת החלון" onClick={onClose}>
-            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-              <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
+            <CloseIcon />
           </button>
         </div>
 
@@ -137,7 +136,8 @@ export default function CreateTaskModal({ onCreated, onClose }: CreateTaskModalP
 
           {errors.form && (
             <p className="form-alert" role="alert">
-              {errors.form}
+              <AlertIcon />
+              <span>{errors.form}</span>
             </p>
           )}
 

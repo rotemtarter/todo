@@ -18,6 +18,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import type { Task } from '../../shared/types';
 import { getTaskLabel } from '../utils/taskLabel';
+import { AlertIcon, DragHandleIcon } from './Icons';
 
 export type LoadStatus = 'loading' | 'error' | 'ready';
 
@@ -94,6 +95,7 @@ export default function TaskList({
 
       {listError && (
         <div className="list-alert" role="alert">
+          <AlertIcon />
           <p className="list-alert__message">{listError.message}</p>
           {listError.canRefresh && (
             <button type="button" className="button button--secondary list-alert__refresh" onClick={onRefresh}>
@@ -197,14 +199,7 @@ function SortableTaskRow({ task, selected, statusPending, dragDisabled, onSelect
         aria-label={`גרור כדי לשנות את מיקום המשימה: ${label}`}
         disabled={dragDisabled}
       >
-        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-          <circle cx="5.5" cy="3" r="1.3" />
-          <circle cx="10.5" cy="3" r="1.3" />
-          <circle cx="5.5" cy="8" r="1.3" />
-          <circle cx="10.5" cy="8" r="1.3" />
-          <circle cx="5.5" cy="13" r="1.3" />
-          <circle cx="10.5" cy="13" r="1.3" />
-        </svg>
+        <DragHandleIcon />
       </button>
     </li>
   );

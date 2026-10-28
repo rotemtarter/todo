@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Full-bleed background; the drawing stays inside the central 80% safe zone. -->
+  <rect width="512" height="512" fill="#2F80ED"/>
+  <rect x="160" y="134" width="192" height="244" rx="22" fill="#FFFFFF"/>
+  <g fill="#56CCF2">
+    <circle cx="192" cy="134" r="10"/>
+    <circle cx="232" cy="134" r="10"/>
+    <circle cx="280" cy="134" r="10"/>
+    <circle cx="320" cy="134" r="10"/>
+  </g>
+  <path d="M206 262l36 36 74-82" fill="none" stroke="#2F80ED" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

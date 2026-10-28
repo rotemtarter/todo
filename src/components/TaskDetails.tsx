@@ -5,6 +5,7 @@ import { updateTask } from '../api/tasksClient';
 import { localToday } from '../utils/date';
 import { errorsByField, toFieldErrors, type FieldErrors } from '../utils/formErrors';
 import DeleteTaskModal from './DeleteTaskModal';
+import { AlertIcon, CheckCircleIcon, TrashIcon } from './Icons';
 
 interface TaskDetailsProps {
   task: Task | null;
@@ -153,12 +154,14 @@ function TaskEditor({ task, onSaved, onDeleted }: { task: Task } & Omit<TaskDeta
 
         {errors.form && (
           <p className="form-alert" role="alert">
-            {errors.form}
+            <AlertIcon />
+            <span>{errors.form}</span>
           </p>
         )}
         {saved && (
           <p className="form-success" role="status">
-            השינויים נשמרו
+            <CheckCircleIcon />
+            <span>השינויים נשמרו</span>
           </p>
         )}
 
@@ -173,6 +176,7 @@ function TaskEditor({ task, onSaved, onDeleted }: { task: Task } & Omit<TaskDeta
             disabled={saving}
             onClick={() => setConfirmingDelete(true)}
           >
+            <TrashIcon size={18} />
             מחק משימה
           </button>
         </div>

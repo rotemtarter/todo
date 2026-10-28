@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { deleteTask } from '../api/tasksClient';
 import { toFieldErrors } from '../utils/formErrors';
+import { AlertIcon } from './Icons';
 
 interface DeleteTaskModalProps {
   taskId: string;
@@ -61,7 +62,8 @@ export default function DeleteTaskModal({ taskId, onDeleted, onCancel }: DeleteT
           <p id={`${id}-question`}>האם אתה בטוח שברצונך למחוק את המשימה הזו?</p>
           {error && (
             <p className="form-alert" role="alert">
-              {error}
+              <AlertIcon />
+              <span>{error}</span>
             </p>
           )}
           <div className="modal__actions">

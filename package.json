@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
+    "icons": "node scripts/generate-icons.mjs",
     "seed:dev": "node --env-file=.env scripts/seed-dev.mjs",
     "postinstall": "node scripts/install-browser.mjs"
   },

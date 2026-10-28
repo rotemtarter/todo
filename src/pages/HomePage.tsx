@@ -5,6 +5,7 @@ import { ApiRequestError, getTasks, reorderTasks, setTaskCompleted } from '../ap
 import TaskList, { type ListError, type LoadStatus } from '../components/TaskList';
 import TaskDetails from '../components/TaskDetails';
 import CreateTaskModal from '../components/CreateTaskModal';
+import { PlusIcon } from '../components/Icons';
 import { NETWORK_ERROR } from '../utils/formErrors';
 import { applyServerPositions, moveTask, restoreOrder } from '../utils/taskOrder';
 
@@ -159,6 +160,7 @@ export default function HomePage() {
             aria-describedby={listFull ? 'list-full-notice' : undefined}
             onClick={() => setCreating(true)}
           >
+            <PlusIcon />
             הוסף משימה
           </button>
         </div>
